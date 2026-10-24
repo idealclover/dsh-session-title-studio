@@ -1,0 +1,50 @@
+# Session Title Studio — merged bundle patch.
+#
+# One row owns both halves: the recipe provider and the refresh policy. The
+# modules stay separate inside the package, but the plugin page shows a single
+# component and the settings page reads one nested `{ recipe, policy }` config.
+#
+# NOTE: only one session-title provider may be registered. If the official
+# "Refresh titles as you chat" bundle
+# (@deepseek-ai/dsh-experimental-session-titles-bundle) is enabled at the same
+# time, whichever provider registers second fails to load. Disable it first.
+
+- id: session-title-llm
+  disabled: true
+
+# Keep the official all-prompts provider out of the single provider slot even
+# when its bundle is selected earlier in the stack. A missing row is skipped
+# with a warning.
+- id: optional-session-title-all-prompts
+  name: '@deepseek-ai/dsh-session-title-all-prompts-llm'
+  disabled: true
+
+# Compatibility with the 0.4.x two-row layout: any profile override that still
+# defines these rows is disabled, so the merged row is the only provider.
+- id: session-title-studio-recipe
+  name: '@idealclover/dsh-session-title-studio'
+  disabled: true
+- id: session-title-studio-policy
+  name: '@idealclover/dsh-session-title-studio/policy'
+  disabled: true
+
+- insert:
+    - id: session-title-studio
+      name: '@idealclover/dsh-session-title-studio'
+      config:
+        recipe:
+          preset: concise
+          language: auto
+          targetWords: 5
+          targetCjkCharacters: 10
+          stability: balanced
+          maxTitleBytes: 80
+        policy:
+          enableIdle: true
+          idleDebounceMs: 180000
+          everyNTurns: 4
+          intervalMs: 0
+          enableDrift: true
+          driftThreshold: 0.6
+          driftForceAfterMessages: 6
+          maxSessionsPerBatch: 10

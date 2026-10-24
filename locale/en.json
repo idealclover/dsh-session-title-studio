@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Title Studio",
+    "description": "Configurable session-title recipes and refresh policies: prompt, language, format, idle/every-N/interval refreshes, topic drift detection, and a visual settings page."
+  }
+}
