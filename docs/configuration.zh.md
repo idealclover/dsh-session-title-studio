@@ -1,80 +1,35 @@
-# 会话标题工坊 · Session Title Studio
+# 详细配置参考（供 AI 助手与高级用户阅读）
 
-[English](./README.md) | 简体中文
+[English](./configuration.md) | 简体中文 · [返回 README](../README.md)
 
-给 DeepSeek Harness 的会话标题加上**可配置的生成配方**和**可编排的刷新策略**。
+README 面向安装和日常使用；本文保存完整配置说明。AI 助手在替用户修改本插件的设置、编写 YAML、解释请求成本或操作批量重建前，应先阅读本文对应章节，不要仅凭 README 猜测参数名或默认值。
 
-它不做“又一个自动标题”，而是把标题从“一次性生成的字符串”变成可配置、可触发、可追溯的元数据：
+## 按任务查阅
 
-- **Recipe（配方）**：自定义 prompt、语言、长度、命名风格、确定性前后缀、模型路由；
-- **Policy（策略）**：空闲后刷新、每 N 轮刷新、定时扫描、手动刷新，并带一整套护栏；
-- **Drift（漂移）**：本地 n-gram 比较最近消息和标题依据，话题没变就不刷，**不额外调用模型**；
-- **Settings（设置页）**：Settings → 会话标题工坊，或插件详情页内直接改，字段即时生效；
-- **安全默认**：绝不覆盖你手动改过的标题；刷新失败保留旧标题；没有新消息不调用模型。
+| 用户目标 | 先读 |
+|---|---|
+| 改标题格式、语言、长度或 prompt | [配置结构](#config-layout)、[生成配方](#recipe)、[模板变量](#variables)、[常用配置](#recipes) |
+| 给标题单独选模型 | [标题模型](#title-model) |
+| 改刷新频率、降低请求量 | [刷新策略](#policy)、[漂移判断](#drift)、[请求成本](#request-cost) |
+| 重建当前或历史标题 | [命令](#commands)、[批量重建](#batch-rebuild) |
+| 重建成功但侧栏显示旧标题 | [侧栏同步](#sidebar-sync) |
+| 排查输入超限、无更新或配置错误 | [排查清单](#troubleshooting)、[安全与边界](#safety) |
 
-底层复用 DSH 自己的 `session/title` 日志与 `ctx.sessionTitle` 服务，所以标题在回放、恢复、分页后都还在，并且**永远不会进入模型上下文**。
+## AI 修改配置前检查
 
----
-
-## 安装
-
-1. 打开 DSH Web/Desktop 的 **插件 → 添加插件 → 安装第三方插件**，填入 Git 仓库来源：
-
-   ```text
-   git+https://github.com/idealclover/dsh-session-title-studio.git
-   ```
-
-   如需本地开发，也可以先克隆仓库，再安装目录的**绝对路径**：
-
-   ```bash
-   git clone https://github.com/idealclover/dsh-session-title-studio.git
-   cd dsh-session-title-studio
-   pwd
-   ```
-
-   把 `pwd` 输出的完整目录填入插件安装器即可。本项目提供纯 JavaScript，不需要额外构建。
-
-2. 启用 **会话标题工坊**（Session Title Studio）。如果 DSH 提示需要重启，请按提示重启。
-
-3. 如果此前启用了官方的 **「随对话更新的标题」**（`dsh-experimental-session-titles-bundle`），请先关闭它。全局只有一个标题提供方槽位，两个同时开会有一个注册失败。
-
-安装后，在输入框里输入 `/title` 即可使用。
+1. **先读取实际配置，再修改。** 唯一组件 id 是 `session-title-studio`，配置根下只有 `recipe` 和 `policy`。不要把字段平铺到根层，也不要插入第二个标题 provider。
+2. **优先使用设置页。** 所有字段都是 volatile。若必须写 YAML，Cordis 的 `config` 覆盖会替换整个配置对象，而不是深度合并；应先保留用户现有的两个 section 和无关字段，再做目标改动，不能直接拿示例覆盖已有配置。
+3. **确认模型路由与模板语义。** `recipe.provider` 与 `recipe.model` 必须同时设置或同时清空；`preset: custom` 需要非空 `systemPrompt`，此时语言、长度、稳定性指令应自行写入 prompt。
+4. **不要擅自扩大范围或覆盖固定标题。** 用户只说改格式时，不代表同意重建全部历史。批量生成前需展示范围、数量与预计模型请求；包含手动固定标题要单独取得明确确认。
+5. **示例不是默认值。** 默认值以 [constants.js](../lib/constants.js) 为准；字段类型与范围以 [schema.js](../lib/schema.js) 和 [config-core.js](../lib/config-core.js) 为准。应核对当前安装版本，不要把本文当成未来版本不变的 API 保证。
 
 ---
 
-## 设置页
-
-两个入口，内容相同：
-
-- **Settings → 会话标题工坊**（独立设置页）；
-- **插件 → 会话标题工坊 → 设置**（组合包详情页内）。
-
-所有字段都是 volatile 配置，修改会立即写入当前 profile 并生效，不需要重启。每个字段右侧的「恢复默认」会清掉用户覆盖层，回落到组合包默认值。
-
-设置页本身是 Client 工件，在宿主启动时加载。从没有设置页的旧版本升级时，需要**重启一次 DSH** 才会出现设置页；之后改配置不需要重启。
-
----
-
-## 它解决什么问题
-
-DSH 默认的标题策略是 **first-prompt**：只用第一句话生成一次标题，之后再也不会变。官方的实验性 bundle 换成了 **all-prompts**：每来一条消息都尝试刷新，但 prompt、语言、长度全部写死，也没有“多久刷一次”的概念。
-
-本插件的组合是：
-
-| | 默认 first-prompt | 官方 all-prompts | 本插件 |
-|---|---|---|---|
-| 生成时机 | 仅首条消息 | 每条消息 | 首次自动 + 策略决定 |
-| 刷新时机可配 | 否 | 否 | 是 |
-| prompt 可配 | 否 | 否 | 是 |
-| 格式/前后缀 | 否 | 否 | 是 |
-| 语言/长度 | 硬编码 | 硬编码 | 可配 |
-| 手动刷新 | 无入口 | 无入口 | `/title refresh` |
-| 手改标题保护 | 是 | 是 | 是（可强制） |
-| 成本控制 | — | 每条消息一次 | 新消息 + 间隔 + 日预算 |
-
----
+<a id="config-layout"></a>
 
 ## 一个组件
+
+设置页修改会写入当前 profile，volatile 字段在下一次使用时读取，不需要为每次配置更改重启。每个字段的「恢复默认」会清除用户覆盖，回落到组合包配置或 schema 默认值。若升级后 Client 页面未更新，可先重新启用插件并刷新页面；宿主提示需要重启时按提示处理。
 
 安装的是**一个 bundle、一个组件**：`session-title-studio`。
 
@@ -92,11 +47,13 @@ recipe（生成）和 policy（刷新）仍然是两个独立模块，但由同�
       everyNTurns: 4
 ```
 
-好处是插件页只有一个开关、一个标签、一个配置命名空间，不会再出现第二行原始子路径。
+设置页只读写这个组件的嵌套配置，内部模块无需分别配置插件行。
 
 从 0.4.x 的两个 row 升级时，bundle patch 会把旧的 `session-title-studio-recipe` / `session-title-studio-policy` disable 掉；旧的 profile 覆盖值不再生效，需要在设置页重新设置一次。升级前请备份已有的自定义配置。
 
 ---
+
+<a id="recipe"></a>
 
 ## 配方配置（recipe）
 
@@ -117,6 +74,8 @@ recipe（生成）和 policy（刷新）仍然是两个独立模块，但由同�
 | `timeoutMs` | `60000` | 辅助请求超时 |
 | `provider` / `model` | `""` | 可选独立模型路由；必须成对配置，留空则跟随会话当前路由 |
 
+<a id="title-model"></a>
+
 ### 标题模型
 
 设置页的「标题模型」是一个真正的模型选择器：它从当前 DSH 的全局模型目录里按 provider 分组列出模型。选中的路由**只用于标题辅助请求**，不会切换会话本身的模型；留空就是「跟随当前会话模型」。
@@ -130,6 +89,8 @@ model: deepseek-v4-pro
 
 标题请求固定使用该路由**最低的 reasoning effort**，以控制成本；失败时保留旧标题。
 
+<a id="variables"></a>
+
 ### 变量
 
 `systemPrompt` 和 `userTemplate` 支持：
@@ -139,12 +100,14 @@ model: deepseek-v4-pro
 | `{{messages}}` | 预算内选取的用户消息，JSON 数组 `[{seq,text}]`；长对话保留首条与最近内容 |
 | `{{transcript}}` | 纯文本转录，每条消息一段 |
 | `{{currentTitle}}` | 当前标题（仅当它来自 provider 时作为锚点传入） |
-| `{{firstMessage}}` | 第一条用户消息 |
+| `{{firstMessage}}` | 第一条用户消息（可能已按预算缩短） |
 | `{{workspace}}` | 会话工作目录的 basename |
 | `{{date}}` | 本地日期 `YYYY-MM-DD` |
-| `{{messageCount}}` | 符合条件的消息数 |
+| `{{messageCount}}` | 当前实际采样的消息数，不是完整历史消息总量 |
 
 未知变量会在加载时直接报错，而不是静默消失。
+
+<a id="presets"></a>
 
 ### 预设
 
@@ -153,6 +116,8 @@ model: deepseek-v4-pro
 - **topic-tags**：2–3 个标签，用 ` · ` 分隔；
 - **conventional**：Conventional Commits 风格，如 `fix(auth): handle OAuth timeout`；
 - **custom**：完全使用你的 `systemPrompt`，不再追加语言/长度/稳定性指令。
+
+<a id="examples"></a>
 
 ### 示例
 
@@ -185,6 +150,8 @@ model: deepseek-v4-pro
 ```
 
 ---
+
+<a id="policy"></a>
 
 ## 刷新策略（policy）
 
@@ -232,6 +199,8 @@ turn/end ──► ① 每 N 轮判断
 
 手动刷新会绕过 3/5/6/7，但默认仍然尊重固定标题。这是有意的：`/title refresh` 不应该意外抹掉你精心起的名字。
 
+<a id="drift"></a>
+
 ### 话题漂移怎么算
 
 漂移检测完全在本地、纯 JS 完成，**不额外调用模型**：
@@ -241,11 +210,13 @@ turn/end ──► ① 每 N 轮判断
 3. 去掉代码块、URL 和中文/英文的对话填充词后，拉丁词按单词、中文按字符 bigram 建 token 集合；
 4. 用 `0.7 × containment + 0.3 × Jaccard` 计算相似度，`漂移 = 1 - 相似度`；
 5. 取最近消息里的**最高漂移分**（避免一条旧的同话题消息把后面的新话题稀释掉）；
-6. 最高分 ≥ `driftThreshold` 才刷新；新消息达到 `driftForceAfterMessages` 时无条件刷新，防止标题永远不更新。
+6. 最高分 ≥ `driftThreshold` 才刷新；新消息达到 `driftForceAfterMessages` 时绕过漂移判断，但仍受触发时机、最小间隔、每日预算和固定标题保护约束。
 
 它是词面统计，不是语义模型：同义改写、跨语言的同一话题可能被判成“漂移”，带很多代码的长消息也可能被高估。阈值和强制条数都可以在设置页调。
 
 ---
+
+<a id="commands"></a>
 
 ## 命令
 
@@ -265,6 +236,8 @@ turn/end ──► ① 每 N 轮判断
 在输入框里先输入 `/` 并从菜单选中 `title`，再输入子命令；直接把一整行 `/title refresh` 当普通消息发出去会被模型当成聊天内容。
 
 `/title` 还会显示当前 `Policy`（idle/everyN/min）和 `Last auto`：最近一次自动判断是 `idle-scheduled`、`idle-fired`、`skip (no-drift)`、`refreshed` 还是 `error`。排查“为什么没刷”时先看这一行。
+
+<a id="batch-rebuild"></a>
 
 ### 批量重建
 
@@ -289,6 +262,8 @@ turn/end ──► ① 每 N 轮判断
 
 冷会话使用共享的标题模型设置，留空则读取该会话最后记录的模型路由；两者都没有时会明确失败，建议先指定标题模型。冷写回采用保守的 80 字节标题上限；标题请求审计在本次操作收尾时持久化，并非网络发出前的崩溃持久化保证。
 
+<a id="sidebar-sync"></a>
+
 ### 标题写回与侧栏同步
 
 从 0.7.1 起，冷标题日志持久化后会在写锁内更新 `sessionProjectionCache`，释放写锁后发送带**准确日志水位**的 `api-session/added` 更新。这样即使客户端之前读过该会话，也不会被旧的投影缓存挡住；侧栏无需点开会话即可更新。标题刷新不改变最后用户消息时间，因此不会把历史会话全部重新排序到最前面。派生缓存或通知失败会作为同步警告显示，不会将已经保存的标题误报成模型生成失败。
@@ -296,6 +271,8 @@ turn/end ──► ① 每 N 轮判断
 修复旧版本已经保存但未显示的标题，可点击 **维护 →「同步已保存标题到侧栏」**。它只读日志、修复派生缓存并推送标题，**不重新生成、不调用模型、不唤醒会话、不修改会话日志**。界面报告的是已推送数量；该修复使用 DSH 的 fail-soft 冷投影缓存写回，缓存持久化由框架异步完成。
 
 ---
+
+<a id="request-cost"></a>
 
 ## 请求成本
 
@@ -318,6 +295,8 @@ turn/end ──► ① 每 N 轮判断
 
 ---
 
+<a id="safety"></a>
+
 ## 安全与边界
 
 - **手改优先**：默认绝不覆盖 `source.kind === 'user'` 的标题。
@@ -332,18 +311,82 @@ turn/end ──► ① 每 N 轮判断
 
 ---
 
-## 开发与验证
+<a id="recipes"></a>
 
-```bash
-cd dsh-session-title-studio
-npm test          # node:test，覆盖纯逻辑
-npm run check     # 语法检查 + 测试
+## 常用配置：供 AI 按用户目标选用
+
+下面只是要合并到现有 `config` 的字段片段，不是替换整份 profile 的指令。不要改变与用户目标无关的设置。
+
+### 所有标题使用同一个 emoji
+
+```yaml
+recipe:
+  prefix: '💬 '
 ```
 
-纯逻辑（模板、格式化、策略判定、漂移打分、配置校验）不依赖 Harness，可以直接在 Node 里跑。涉及 DSH 服务、历史存储和客户端模块的集成测试，需要相应的 DSH 依赖可解析；在独立 checkout 缺少宿主依赖时，这部分测试会明确标记为跳过，不能把纯逻辑测试通过当成完整宿主兼容性验证。Host 入口负责注册 provider、挂事件、注册命令；`client.js` 是设置页的浏览器工件。
+前缀和后缀是确定性字面文本，不展开 `{{变量}}`。emoji 后留一个空格即可；标题仍受 UTF-8 字节预算约束。
 
----
+### 按主题选择一个 emoji
 
-## License
+将 `recipe.prefix` 留空，在现有 `recipe.systemPrompt` 后追加以下要求；不需要把 `preset` 改成 `custom`：
 
-MIT
+```text
+每个标题必须以一个贴合会话主题的 emoji 开头，随后是一个空格和简洁的中文标题。
+标题开头只能有一个 emoji，不要在正文中重复添加。
+如果当前标题缺少 emoji，即使主题未变，也必须补齐此格式。
+只输出最终标题，不要引号、解释或 Markdown。
+```
+
+不要同时让模型生成 emoji 又设固定 emoji 前缀，以免重复。修改格式只影响下一次生成，不会自动重建全部旧标题；是否批量处理及是否覆盖固定标题，应另外询问用户。
+
+### 更省请求的自动刷新
+
+```yaml
+policy:
+  enableIdle: false
+  everyNTurns: 6
+  intervalMs: 0
+  maxRefreshesPerSessionPerDay: 4
+  enableDrift: true
+  driftThreshold: 0.7
+  driftForceAfterMessages: 10
+```
+
+如果用户只想手动刷新，将 `enableIdle: false`、`everyNTurns: 0`、`intervalMs: 0` 三项同时设置；新会话首条消息的初始标题生成仍然存在。
+
+### 单独指定标题模型
+
+```yaml
+recipe:
+  provider: '<当前 DSH 中已配置的 provider id>'
+  model: '<该 provider 下的 model id>'
+```
+
+先读取当前模型目录，或请用户在设置页下拉选择；不要猜测一个不存在的模型 id，也不要写入 API key。标题请求不修改主会话模型，失败时不会自动回退到主会话模型。恢复跟随会话时，`provider` 与 `model` 一起清空。
+
+<a id="troubleshooting"></a>
+
+## AI 排查清单
+
+| 现象 | 检查与处理 |
+|---|---|
+| 改了 prompt，但旧标题没变 | 保存设置不会主动重建全部历史；先手动刷新一个会话验证，批量处理前再确认范围。 |
+| 刷新被跳过 | `/title` 看来源、处理水位、`Policy`、`Drift`、`Last auto`；检查固定标题、无新消息、最小间隔、日预算、漂移阈值和文本长度。 |
+| 长对话出现 4096 字节相关错误 | 当前版本会按首条意图和最近内容抽样、Unicode 安全缩短；若是自定义模板固定文本本身过长，应缩短模板或让用户明确提高预算，不应反复重试制造请求。 |
+| 设置页改值无效或报错 | 检查 `recipe` / `policy` 是否嵌套正确、类型/数值范围是否有效、是否有更高优先级覆盖。验证未通过时运行逻辑可能保留最后一份有效配置。 |
+| 自定义模板生成失败 | 模板变量仅限本文列表；自定义模板与 system prompt 合起来至少要引用 `{{messages}}`、`{{transcript}}` 或 `{{firstMessage}}` 中一个，不能只给固定文本或消息计数。 |
+| 指定模型失败 | provider/model 必须成对；查模型是否可用、凭据是否由 DSH 配好。不要把凭据放进本插件配置。 |
+| 批量成功但侧栏还是旧标题 | 点击「同步已保存标题到侧栏」，不要先重新发一批模型请求。 |
+| 全部历史重建有跳过项 | 空会话、子会话和固定标题默认跳过；其他进程持有写锁时跳过；损坏或格式不兼容的记录应报告，不能强行解锁或重写。 |
+
+### 校验来源与兼容性
+
+- [默认值与可用枚举](../lib/constants.js)
+- [可编辑 Config schema](../lib/schema.js)
+- [类型、数值范围和跨字段校验](../lib/config-core.js)
+- [输入预算与模板抽样](../lib/input-budget.js)
+- [刷新判断](../lib/policy-core.js)
+- [全历史存储适配与边界](../lib/history.js)
+- [列表缓存与同步通知](../lib/title-publication.js)
+
+这些路径也随插件包发布；AI 在实际操作时仍需核对安装版本和用户当前配置。本文是配置参考，不是修改权限或跳过用户确认的授权。
