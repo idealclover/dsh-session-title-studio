@@ -110,6 +110,19 @@ test('cold preview reads only; cold generation appends valid contiguous events a
   assert.equal(restored.seq, 5) // a fresh detached restore adds its own end-seed boundary
 })
 
+test('single-target inspection is read-only and never scans the whole corpus', { skip }, async () => {
+  const h = fixture({ pinned: true })
+  const inspected = await h.adapter.inspectTarget('cold', new AbortController().signal)
+  assert.equal(inspected.id, 'cold')
+  assert.equal(inspected.pinned, true)
+  assert.equal(inspected.hasInput, true)
+  assert.equal(inspected.live, false)
+  assert.deepEqual(h.calls(), { modelCalls: 0, liveCalls: 0 })
+  assert.equal(h.writes.length, 0)
+  assert.deepEqual(h.closes, ['read'])
+  assert.equal(h.db.get('cold').locked, false)
+})
+
 test('pins are rechecked under lock and protected unless forced', { skip }, async () => {
   const h = fixture({ pinned: true })
   const result = await h.adapter.refresh({ id: 'cold' }, { force: false, signal: new AbortController().signal })

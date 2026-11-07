@@ -177,6 +177,13 @@ Manual refreshes bypass staleness, interval, and budget, but still respect a pin
 
 ## Commands
 
+### Sidebar single-conversation action
+
+Choose **⋯ → Regenerate title** on the target sidebar conversation. The action captures that conversation's id rather than the currently selected chat, does not navigate, and supports unopened cold history. It shares the title model, prompts, input budget and persistence write lock, then pushes the new sidebar title immediately. Newer DSH uses the native session menu; older releases use the legacy menu slot without duplicate items.
+
+A manually named title requires explicit confirmation before replacement/unpinning; cancellation makes no model call. Unpinned titles regenerate directly, using approximately one title-model request. Progress prevents duplicate clicks, and failures or writer-lock conflicts are shown explicitly. Dismissing the menu does not cancel generation; plugin unload or page close may abort it. `includeSubagents` still applies.
+
+
 | Command | Effect |
 |---|---|
 | `/title` | Show title, source, update time, coverage |

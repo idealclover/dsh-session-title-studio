@@ -24,6 +24,22 @@ window.__ModuleLoader__.load({
     const STABILITY = ['strict', 'balanced', 'follow']
 
     const zh = {
+      'menu.label': '重新生成标题',
+      'menu.running': '正在使用标题模型重新生成，请稍候…',
+      'menu.success': '标题已更新：{title}',
+      'menu.failed': '重新生成标题失败，请重试。',
+      'menu.cancelled': '标题重新生成已取消。',
+      'menu.confirmTitle': '替换手动固定的标题？',
+      'menu.confirmBody': '这条会话的标题由你手动设置。继续会使用标题模型替换并解除固定，预计产生一次标题请求。',
+      'menu.confirm': '确认重新生成',
+      'menu.back': '取消',
+      'menu.close': '关闭',
+      'menu.skip.no-input': '这条会话还没有可用于生成标题的用户文本。',
+      'menu.skip.subagent': '当前设置不包含子会话标题。',
+      'menu.skip.owned-elsewhere': '这条会话正由其他进程写入，请稍后重试。',
+      'menu.skip.in-flight': '这条会话已经有标题请求正在运行，请稍后重试。',
+      'menu.skip.no-longer-live': '会话状态已变化，请重试。',
+      'menu.skip.disposed': '标题插件正在重新加载，请稍后重试。',
       'page.nav': '会话标题工坊',
       'page.title': '会话标题工坊',
       'page.desc': '配置标题的生成方式、刷新时机与话题漂移判断。修改会立即写入当前 profile。',
@@ -176,6 +192,22 @@ window.__ModuleLoader__.load({
     }
 
     const en = {
+      'menu.label': 'Regenerate title',
+      'menu.running': 'Regenerating with the title model. Please wait…',
+      'menu.success': 'Title updated: {title}',
+      'menu.failed': 'Could not regenerate the title. Please try again.',
+      'menu.cancelled': 'Title regeneration was cancelled.',
+      'menu.confirmTitle': 'Replace the manually pinned title?',
+      'menu.confirmBody': 'You named this conversation manually. Continuing replaces and unpins its title, using approximately one title-model request.',
+      'menu.confirm': 'Confirm regeneration',
+      'menu.back': 'Cancel',
+      'menu.close': 'Close',
+      'menu.skip.no-input': 'This conversation has no eligible user text to title yet.',
+      'menu.skip.subagent': 'Subagent titles are excluded by the current settings.',
+      'menu.skip.owned-elsewhere': 'Another process is writing this conversation. Try again later.',
+      'menu.skip.in-flight': 'A title request is already running for this conversation.',
+      'menu.skip.no-longer-live': 'The conversation state changed. Please try again.',
+      'menu.skip.disposed': 'Title Studio is reloading. Please try again.',
       'page.nav': 'Title Studio',
       'page.title': 'Title Studio',
       'page.desc': 'Configure how titles are generated, when they refresh, and how topic drift is judged. Changes are written to the current profile immediately.',
@@ -370,6 +402,10 @@ window.__ModuleLoader__.load({
 .sts-batch-panel p { margin:0; font-size:12px; }
 .sts-batch-list { max-height:180px; overflow:auto; padding-left:20px; margin:0; font-size:12px; overflow-wrap:anywhere; }
 .sts-progress { width:100%; accent-color:var(--dsw-alias-brand-primary); }
+.sts-menu-backdrop { position:fixed; inset:0; z-index:1000; pointer-events:auto; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--dsw-alias-bg-mask-1); }
+.sts-menu-dialog { width:min(440px,100%); max-height:80vh; overflow:auto; padding:22px; border:1px solid var(--dsw-alias-border-l2); border-radius:12px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-primary); font-size:13px; line-height:1.6; outline:none; overflow-wrap:anywhere; }
+.sts-menu-dialog h3 { margin:0 0 8px; font-size:16px; }
+.sts-menu-dialog .sts-inline { justify-content:flex-end; margin-top:18px; }
 @media (max-width:720px) {
   .sts-row { grid-template-columns:1fr; gap:4px; }
   .sts-label { padding-top:0; }
@@ -1360,11 +1396,159 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // Local SVG keeps the menu icon theme-aware without cross-plugin imports.
+    function RegenerateTitleIcon() {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round',
+        'aria-hidden': true, focusable: false, style: { flexShrink: 0 } },
+      h('path', { d: 'M20 7v5h-5M4 17v-5h5' }),
+      h('path', { d: 'M6.1 7a7 7 0 0 1 11.55-1L20 9M4 15l2.35 3A7 7 0 0 0 17.9 17' }))
+    }
+
+    /** Shared UI controller: menu dismissal must not cancel title work or hide errors. */
+    function createSessionMenuController({ call, t, notify = () => {} }) {
+      let state = Object.freeze({ sessionId: null, title: '', phase: 'idle', message: '' })
+      const listeners = new Set()
+      let aborted
+      let disposed = false
+      const set = (patch) => {
+        if (disposed) return
+        state = Object.freeze({ ...state, ...patch })
+        for (const listener of listeners) listener()
+      }
+      const busy = () => state.phase === 'running' || state.phase === 'confirm'
+      const execute = async (force) => {
+        aborted = new AbortController()
+        set({ phase: 'running', message: '' })
+        try {
+          const result = await call('regenerate', { sessionId: state.sessionId, force }, aborted.signal)
+          if (disposed) return
+          if (result.ok) {
+            const message = t('menu.success', { title: result.title })
+            set({ phase: 'success', message: result.warnings?.length
+              ? message + '\n' + result.warnings.join('\n') : message })
+            notify(message, true)
+          } else if (result.skip === 'pinned') {
+            set({ phase: 'confirm', title: result.title ?? state.title })
+          } else {
+            const key = result.skip ? 'menu.skip.' + result.skip : result.cancelled ? 'menu.cancelled' : null
+            const message = result.error ?? (key ? t(key) : t('menu.failed'))
+            set({ phase: 'error', message })
+            notify(message, false)
+          }
+        } catch (error) {
+          if (disposed) return
+          const message = error instanceof Error ? error.message : String(error)
+          set({ phase: 'error', message })
+          notify(message, false)
+        }
+      }
+      return {
+        getSnapshot: () => state,
+        subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
+        busy,
+        request(sessionId, title) {
+          if (disposed || busy()) return Promise.resolve()
+          set({ sessionId, title, phase: 'running', message: '' })
+          return execute(false)
+        },
+        confirm() { return state.phase === 'confirm' ? execute(true) : Promise.resolve() },
+        dismiss() { if (state.phase !== 'running') set({ phase: 'idle', message: '' }) },
+        dispose() { disposed = true; aborted?.abort(); listeners.clear() },
+      }
+    }
+
+    function SessionMenuFeedback({ controller, t }) {
+      const state = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
+      const panel = React.useRef(null)
+      React.useEffect(() => {
+        if (state.phase === 'idle') return undefined
+        const previous = document.activeElement
+        panel.current?.focus()
+        return () => { if (previous?.isConnected) previous.focus?.() }
+      }, [state.phase])
+      if (state.phase === 'idle') return null
+      const confirming = state.phase === 'confirm'
+      const running = state.phase === 'running'
+      const dismiss = () => { if (!running) controller.dismiss() }
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape' && !running) { event.preventDefault(); dismiss() }
+        if (event.key !== 'Tab') return
+        const buttons = [...panel.current.querySelectorAll('button:not(:disabled)')]
+        const first = buttons[0]; const last = buttons.at(-1)
+        if (!first) { event.preventDefault(); return }
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {
+          event.preventDefault(); last.focus()
+        } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) {
+          event.preventDefault(); first.focus()
+        }
+      }
+      return h('div', { className: 'sts-menu-backdrop', onClick: (event) => {
+        if (event.target === event.currentTarget) dismiss()
+      } },
+        h('style', null, CSS),
+        h('section', { className: 'sts-menu-dialog', role: 'dialog', 'aria-modal': true,
+          'aria-labelledby': 'sts-menu-dialog-title', ref: panel, tabIndex: -1, onKeyDown },
+          h('h3', { id: 'sts-menu-dialog-title' }, t(confirming ? 'menu.confirmTitle' : 'menu.label')),
+          h('p', { className: 'sts-hint' }, state.title),
+          h('p', { role: state.phase === 'error' ? 'alert' : 'status', style: { whiteSpace: 'pre-wrap' } },
+            confirming ? t('menu.confirmBody') : running ? t('menu.running') : state.message),
+          h('div', { className: 'sts-inline' },
+            confirming ? h('button', { type: 'button', className: 'sts-button is-primary',
+              onClick: () => void controller.confirm() }, t('menu.confirm')) : null,
+            !running ? h('button', { type: 'button', className: 'sts-button', onClick: dismiss },
+              t(confirming ? 'menu.back' : 'menu.close')) : null)))
+    }
+
     function apply(ctx) {
       ctx.effect(function* () {
         yield ctx.locale.register(NS, { zh, en })
         const t = ctx.locale.bind(NS)
         const runtime = { ctx, t }
+        let nativeMenus = null
+        const menuController = createSessionMenuController({ call: rebuildCall, t,
+          notify: (text, success) => nativeMenus?.notify(text, success) })
+        yield () => menuController.dispose()
+        yield ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay', id: 'session-title-studio-regenerate',
+          inject: () => ({ controller: menuController, t }),
+        }, SessionMenuFeedback))
+        yield ctx.slots.inject('contextMenu.icon', () => ctx.slots.register({
+          name: 'contextMenu.icon', key: 'session-title-studio.regenerate',
+        }, RegenerateTitleIcon))
+        // Prefer the current structured menu API. Optional injection also makes
+        // the native/legacy choice reactive when this service loads or unloads.
+        ctx.inject(['contextMenus'], (scope) => {
+          const menus = scope.contextMenus
+          scope.effect(() => {
+            nativeMenus = menus
+            return () => { if (nativeMenus === menus) nativeMenus = null }
+          })
+          scope.effect(() => menus.register({
+            id: 'session-title-studio.regenerate', target: 'session', order: 400,
+            observe: () => [ctx.locale, menuController],
+            resolve: ({ sessionId, displayTitle }) => [{
+              id: 'regenerate-title', label: t('menu.label'),
+              icon: { key: 'session-title-studio.regenerate' },
+              disabled: menuController.busy(), failureLabel: t('menu.failed'),
+              run: () => menuController.request(sessionId, displayTitle),
+            }],
+          }))
+        })
+        // Compatibility with older DSH versions which expose only this slot.
+        // It renders nothing once the structured menu service is present.
+        yield ctx.slots.inject('sidebar.workspaces.session.menu.item', () => ctx.slots.register({
+          name: 'sidebar.workspaces.session.menu.item', id: 'session-title-studio-regenerate', order: 400,
+        }, ({ sessionId, displayTitle, useMenuOpenState }) => {
+          const [, setMenuOpen] = useMenuOpenState()
+          if (nativeMenus) return null
+          return h('button', { type: 'button', role: 'menuitem',
+            style: { display: 'flex', alignItems: 'center', gap: 8 },
+            disabled: menuController.busy(), onClick: () => {
+              setMenuOpen(false)
+              void menuController.request(sessionId, displayTitle)
+            } }, h(RegenerateTitleIcon), t('menu.label'))
+        }))
         yield ctx.slots.inject('plugins.bundle.config', () =>
           ctx.slots.register(
             {
@@ -1394,6 +1578,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots', 'locale', 'configForms', 'remote', 'remote.session'],
+      createSessionMenuController,
       apply,
     }
   },

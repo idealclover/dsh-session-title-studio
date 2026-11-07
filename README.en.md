@@ -44,7 +44,7 @@ Titles reuse DSH's log-backed `session/title` state and `ctx.sessionTitle` servi
 
 3. If the official **“Refresh titles as you chat”** bundle (`dsh-experimental-session-titles-bundle`) is enabled, disable it first. Only one title provider can be registered globally; enabling both causes one to fail registration.
 
-After installation, use `/title` in the composer.
+After installation, use `/title` in the composer, or choose **⋯ → Regenerate title** on a sidebar conversation to update that title without opening the conversation.
 
 ---
 

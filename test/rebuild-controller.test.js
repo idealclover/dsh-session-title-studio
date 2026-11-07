@@ -140,7 +140,7 @@ test('authenticated route adapter validates requests and returns structured resu
   mountRebuildRemote({ inject: (_deps, body) => body({ connection: {
     fetch: { register: (route) => routes.set(route.path, route) },
   } }) }, h.controller)
-  assert.equal(routes.size, 5)
+  assert.equal(routes.size, 6)
   const invoke = (method, body, contentType = 'application/json') =>
     routes.get(`/api/session-title-studio/${method}`).fetch(new Request('http://localhost/api', {
       method: 'POST', headers: { 'Content-Type': contentType }, body,
