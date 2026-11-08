@@ -24,11 +24,13 @@
 
 ## 安装
 
-1. 打开 DSH Web/Desktop 的 **插件 → 添加插件 → 安装第三方插件**，填入 Git 仓库来源：
+1. 打开 DSH Web/Desktop 的 **插件 → 添加插件 → 安装第三方插件**，填入 npm 包名：
 
    ```text
-   git+https://github.com/idealclover/dsh-session-title-studio.git
+   @idealclover/dsh-session-title-studio@0.8.1
    ```
+
+   也可以使用 Git 来源 `git+https://github.com/idealclover/dsh-session-title-studio.git`。
 
    如需本地开发，也可以先克隆仓库，再安装目录的**绝对路径**：
 

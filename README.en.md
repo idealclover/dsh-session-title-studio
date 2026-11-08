@@ -24,11 +24,13 @@ Titles reuse DSH's log-backed `session/title` state and `ctx.sessionTitle` servi
 
 ## Install
 
-1. Open **Plugins → Add plugin → Install a third-party plugin** in DSH Web/Desktop and enter the Git source:
+1. Open **Plugins → Add plugin → Install a third-party plugin** in DSH Web/Desktop and enter the npm package:
 
    ```text
-   git+https://github.com/idealclover/dsh-session-title-studio.git
+   @idealclover/dsh-session-title-studio@0.8.1
    ```
+
+   Alternatively, use the Git source `git+https://github.com/idealclover/dsh-session-title-studio.git`.
 
    For local development, clone the repository and install its **absolute directory path** instead:
 
