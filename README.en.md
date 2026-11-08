@@ -74,6 +74,18 @@ This plugin combines:
 | Manual-title protection | Yes | Yes | Yes, with an explicit force option |
 | Cost controls | — | One call per message | New input + spacing + daily budget |
 
+<details>
+<summary>Interface previews: recipes, policies, topic drift, and single-session regeneration</summary>
+
+These are cropped captures of the actual settings cards and menu, with no conversation content. The displayed settings are examples, not necessarily defaults.
+
+![Title recipe](./docs/images/recipe.png)
+![Refresh policy](./docs/images/policy.png)
+![Topic drift](./docs/images/drift.png)
+![Single-session menu](./docs/images/session-menu.png)
+
+</details>
+
 ---
 
 ## Development and verification

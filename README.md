@@ -18,7 +18,7 @@
 - **Settings（设置页）**：Settings → 会话标题工坊，或插件详情页内直接改；
 - **安全默认**：刷新失败保留旧标题；没有新消息不调用模型。
 
-底层复用 DSH 自己的 `session/title` 日志与 `ctx.sessionTitle` 服务，所以标题在回放、恢复、分页后都还在，并且**永远不会进入模型上下文**。
+底层复用 DSH 自己的 `session/title` 日志与 `ctx.sessionTitle` 服务，所以标题在回放、恢复、分页后都还在，并且**不会进入主对话模型的上下文**。
 
 ---
 
@@ -73,6 +73,18 @@ DSH 默认的标题策略是 **first-prompt**：只用第一句话生成一次�
 | 手动刷新 | 无入口 | 无入口 | `/title refresh` |
 | 手改标题保护 | 是 | 是 | 是（可强制） |
 | 成本控制 | — | 每条消息一次 | 新消息 + 间隔 + 日预算 |
+
+<details>
+<summary>界面预览：生成配方、刷新策略、话题漂移与单条重建</summary>
+
+截图仅裁切真实设置卡片和菜单，不含会话内容；界面中的参数是演示配置，并非全部为默认值。
+
+![生成配方](./docs/images/recipe.png)
+![刷新策略](./docs/images/policy.png)
+![话题漂移](./docs/images/drift.png)
+![单条会话菜单](./docs/images/session-menu.png)
+
+</details>
 
 ---
 
