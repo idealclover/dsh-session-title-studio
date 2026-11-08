@@ -1,6 +1,6 @@
 {
   "name": "@idealclover/dsh-session-title-studio",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Configurable session titles for DeepSeek Harness: prompt/format recipes, refresh policies, a visual settings page, and local topic-drift detection.",
   "author": "idealclover",
   "homepage": "https://github.com/idealclover/dsh-session-title-studio#readme",
