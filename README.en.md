@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/@idealclover/dsh-session-title-studio">npm</a> ·
+  <a href="https://awesome-dsh-plugin.com/p/idealclover/dsh-session-title-studio/">Community marketplace</a> ·
+  <a href="https://github.com/idealclover/dsh-session-title-studio/releases/latest">Release</a>
+</p>
+
+<p align="center">
   Add <strong>configurable title recipes</strong> and <strong>refresh policies</strong> to DeepSeek Harness sessions.
 </p>
 
@@ -23,6 +29,14 @@ Titles reuse DSH's log-backed `session/title` state and `ctx.sessionTitle` servi
 ---
 
 ## Install
+
+Listed in the [Awesome DSH Plugin community directory](https://awesome-dsh-plugin.com/p/idealclover/dsh-session-title-studio/), with `0.8.1` available in its public plugin index. Refresh a marketplace that uses this community index and search for `dsh-session-title-studio`; if it is not visible yet, install directly below. Community listing is not official certification.
+
+Custom plugin index URL for DSH:
+
+```text
+https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
+```
 
 1. Open **Plugins → Add plugin → Install a third-party plugin** in DSH Web/Desktop and enter the npm package:
 

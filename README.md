@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/@idealclover/dsh-session-title-studio">npm</a> ·
+  <a href="https://awesome-dsh-plugin.com/p/idealclover/dsh-session-title-studio/">社区插件市场</a> ·
+  <a href="https://github.com/idealclover/dsh-session-title-studio/releases/latest">Release</a>
+</p>
+
+<p align="center">
   给 DeepSeek Harness 的会话标题加上<strong>可配置的生成配方</strong>和<strong>可编排的刷新策略</strong>。
 </p>
 
@@ -23,6 +29,14 @@
 ---
 
 ## 安装
+
+已收录于 [Awesome DSH Plugin 社区目录](https://awesome-dsh-plugin.com/p/idealclover/dsh-session-title-studio/)，公开插件索引已包含 `0.8.1`。在使用该社区索引的插件市场中刷新后搜索 `dsh-session-title-studio` 即可；若尚未显示，可按下方方式直接安装。社区收录不代表官方认证。
+
+DSH 自定义插件索引地址：
+
+```text
+https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
+```
 
 1. 打开 DSH Web/Desktop 的 **插件 → 添加插件 → 安装第三方插件**，填入 npm 包名：
 
